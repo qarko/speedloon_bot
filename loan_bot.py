@@ -17,8 +17,8 @@ from telegram.ext import (
 
 # --- 설정 부분 ---
 # Railway 환경 변수에서 토큰과 ID를 가져옵니다.
-TELEGRAM_BOT_TOKEN = os.environ.get('7627967287:AAFkVYBWwNzBX_blu1B2W8k5hHy01xZiUQQ')
-ADMIN_CHAT_ID = os.environ.get('5669071201')
+TELEGRAM_BOT_TOKEN = os.environ.get(7627967287:AAFkVYBWwNzBX_blu1B2W8k5hHy01xZiUQQ)
+ADMIN_CHAT_ID = os.environ.get(5669071201)
 # -----------------
 
 # 로깅 설정
