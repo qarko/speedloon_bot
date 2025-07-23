@@ -2,8 +2,9 @@
 # pip install python-telegram-bot==20.8
 
 import logging
-import re  # 데이터 검증을 위한 정규식 라이브러리
-import os # 환경 변수 사용을 위한 라이브러리 추가
+import re
+import os
+from datetime import datetime # 날짜 유효성 검사를 위해 추가
 
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -17,12 +18,8 @@ from telegram.ext import (
 
 # --- 설정 부분 ---
 # Railway 환경 변수에서 토큰과 ID를 가져옵니다.
-TELEGRAM_BOT_TOKEN = os.environ.get('7627967287:AAFkVYBWwNzBX_blu1B2W8k5hHy01xZiUQQ')
-ADMIN_CHAT_ID = os.environ.get('5669071201')
-
-TEST_VALUE = os.environ.get('TEST_VARIABLE')
-print(f"테스트 변수 값: {TEST_VALUE}")
-print(f"텔레그램 토큰 값: {TELEGRAM_BOT_TOKEN}")
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+ADMIN_CHAT_ID = os.environ.get('ADMIN_CHAT_ID')
 # -----------------
 
 # 로깅 설정
@@ -35,7 +32,7 @@ logger = logging.getLogger(__name__)
 (NAME, PHONE, REGION, OCCUPATION, INCOME, LOAN_AMOUNT, 
  DOB, REPAYMENT_PERIOD, PRIVATE_LOAN, DELINQUENCY_HISTORY) = range(10)
 
-# --- '이전' 및 '취소' 커맨드 핸들러 ---
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """대화를 취소하고 종료합니다."""
     await update.message.reply_text(
@@ -44,21 +41,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return ConversationHandler.END
 
-# --- 대화 시작 ---
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """대화의 시작점. 사용자에게 이름 입력을 요청합니다."""
     await update.message.reply_text(
         "안녕하세요! 대출 접수를 시작하겠습니다.\n\n"
-        "언제든 '이전'을 입력하면 이전 질문으로 돌아가고, '/cancel'을 입력하면 접수를 취소합니다.\n\n"
+        "언제든 '이전' 또는 '취소'를 입력하면 이전 질문으로 돌아가거나 접수를 취소합니다.\n\n"
         "먼저 성함을 알려주시겠어요?"
     )
     return NAME
 
-# --- 각 항목별 정보 수집, 검증, 이전 단계 이동 함수 ---
+
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['name'] = update.message.text
     await update.message.reply_text("연락 가능한 전화번호를 알려주세요. ('-' 없이 10~11자리 숫자만 입력)")
     return PHONE
+
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
@@ -74,6 +72,7 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("올바른 형식이 아닙니다. '-' 없이 10~11자리 숫자만 입력해주세요.")
         return PHONE
 
+
 async def get_region(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     if text == '이전':
@@ -84,6 +83,7 @@ async def get_region(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("직업을 알려주세요. (예: 직장인, 사업자, 프리랜서)")
     return OCCUPATION
 
+
 async def get_occupation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     if text == '이전':
@@ -93,6 +93,7 @@ async def get_occupation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data['occupation'] = text
     await update.message.reply_text("월 평균 수입을 숫자로만 알려주세요. (단위: 만 원, 예: 300)")
     return INCOME
+
 
 async def get_income(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
@@ -108,6 +109,7 @@ async def get_income(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("올바른 형식이 아닙니다. 숫자만 입력해주세요.")
         return INCOME
 
+
 async def get_loan_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     if text == '이전':
@@ -122,19 +124,24 @@ async def get_loan_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text("올바른 형식이 아닙니다. 숫자만 입력해주세요.")
         return LOAN_AMOUNT
 
+
 async def get_dob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """생년월일을 '유효성 검증'하고 저장한 뒤, 상환 기간을 질문합니다."""
     text = update.message.text
     if text == '이전':
         await update.message.reply_text("필요하신 금액을 다시 알려주세요.")
         return LOAN_AMOUNT
 
-    if re.match(r'^\d{8}$', text):
+    # 날짜 형식 및 유효성 검증
+    try:
+        datetime.strptime(text, '%Y%m%d')
         context.user_data['dob'] = text
         await update.message.reply_text("예상 상환 기간을 알려주세요. (예: 36개월)")
         return REPAYMENT_PERIOD
-    else:
-        await update.message.reply_text("올바른 형식이 아닙니다. 8자리 숫자(YYYYMMDD)로 입력해주세요.")
+    except ValueError:
+        await update.message.reply_text("존재하지 않는 날짜입니다. 8자리(YYYYMMDD) 형식의 유효한 날짜를 입력해주세요.")
         return DOB
+
 
 async def get_repayment_period(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
@@ -149,6 +156,7 @@ async def get_repayment_period(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, input_field_placeholder="버튼 선택 또는 '이전' 입력"),
     )
     return PRIVATE_LOAN
+
 
 async def get_private_loan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
@@ -167,6 +175,7 @@ async def get_private_loan(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     else:
         await update.message.reply_text("버튼을 선택하거나 '이전'을 입력해주세요.")
         return PRIVATE_LOAN
+
 
 async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
@@ -238,11 +247,15 @@ def main() -> None:
             PRIVATE_LOAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_private_loan)],
             DELINQUENCY_HISTORY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_delinquency_history)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        # '취소' 라는 단어에도 반응하도록 filters.Regex 추가
+        fallbacks=[
+            CommandHandler("cancel", cancel),
+            MessageHandler(filters.Regex('^취소$'), cancel)
+        ],
     )
 
     application.add_handler(conv_handler)
-    print("환경 변수 설정이 적용된 챗봇이 시작되었습니다...")
+    print("개선된 챗봇이 시작되었습니다...")
     application.run_polling()
 
 if __name__ == "__main__":
