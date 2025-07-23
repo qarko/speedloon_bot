@@ -3,6 +3,8 @@
 
 import logging
 import re  # 데이터 검증을 위한 정규식 라이브러리
+import os # 환경 변수 사용을 위한 라이브러리 추가
+
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application,
@@ -14,10 +16,9 @@ from telegram.ext import (
 )
 
 # --- 설정 부분 ---
-# 1. BotFather에게 받은 텔레그램 봇 토큰을 입력하세요.
-TELEGRAM_BOT_TOKEN = "7627967287:AAFkVYBWwNzBX_blu1B2W8k5hHy01xZiUQQ"
-# 2. userinfobot에게 확인한 본인의 숫자 Chat ID를 입력하세요.
-ADMIN_CHAT_ID = "5669071201"
+# Railway 환경 변수에서 토큰과 ID를 가져옵니다.
+TELEGRAM_BOT_TOKEN = os.environ.get('7627967287:AAFkVYBWwNzBX_blu1B2W8k5hHy01xZiUQQ')
+ADMIN_CHAT_ID = os.environ.get('5669071201')
 # -----------------
 
 # 로깅 설정
@@ -27,7 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 대화 상태 정의
-(NAME, PHONE, REGION, OCCUPATION, INCOME, LOAN_AMOUNT,
+(NAME, PHONE, REGION, OCCUPATION, INCOME, LOAN_AMOUNT, 
  DOB, REPAYMENT_PERIOD, PRIVATE_LOAN, DELINQUENCY_HISTORY) = range(10)
 
 # --- '이전' 및 '취소' 커맨드 핸들러 ---
@@ -38,8 +39,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         reply_markup=ReplyKeyboardRemove(),
     )
     return ConversationHandler.END
-
-# 이전 단계로 돌아가는 기능들을 각 함수 안에 통합합니다.
 
 # --- 대화 시작 ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -201,8 +200,12 @@ async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_
             f"• 연체/사고 이력: {ud.get('delinquency_history', 'N/A')}\n"
         )
 
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message, parse_mode='Markdown')
-        logger.info("관리자에게 상세 접수 내용을 성공적으로 전달했습니다.")
+        if ADMIN_CHAT_ID:
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message, parse_mode='Markdown')
+            logger.info("관리자에게 상세 접수 내용을 성공적으로 전달했습니다.")
+        else:
+            logger.error("ADMIN_CHAT_ID가 설정되지 않았습니다.")
+            
         return ConversationHandler.END
     else:
         await update.message.reply_text("버튼을 선택하거나 '이전'을 입력해주세요.")
@@ -210,6 +213,11 @@ async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_
 
 
 def main() -> None:
+    """챗봇을 시작하고 실행합니다."""
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("TELEGRAM_BOT_TOKEN이 설정되지 않았습니다. 봇을 시작할 수 없습니다.")
+        return
+
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -230,7 +238,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
-    print("'이전으로' 기능이 추가된 챗봇이 시작되었습니다...")
+    print("환경 변수 설정이 적용된 챗봇이 시작되었습니다...")
     application.run_polling()
 
 if __name__ == "__main__":
