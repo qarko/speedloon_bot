@@ -4,7 +4,8 @@
 import logging
 import re
 import os
-from datetime import datetime # 날짜 유효성 검사를 위해 추가
+from datetime import datetime
+from telegram.error import Forbidden # 차단 오류 제어를 위해 추가
 
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -43,13 +44,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """대화의 시작점. 사용자에게 이름 입력을 요청합니다."""
-    await update.message.reply_text(
-        "안녕하세요! 대출 접수를 시작하겠습니다.\n\n"
-        "언제든 '이전' 또는 '취소'를 입력하면 이전 질문으로 돌아가거나 접수를 취소합니다.\n\n"
-        "먼저 성함을 알려주시겠어요?"
-    )
-    return NAME
+    """대화의 시작점. 차단된 사용자인지 확인하고 진행합니다."""
+    try:
+        # 정상적인 경우, 환영 메시지를 보냅니다.
+        await update.message.reply_text(
+            "안녕하세요! 대출 접수를 시작하겠습니다.\n\n"
+            "언제든 '이전' 또는 '취소'를 입력하면 이전 질문으로 돌아가거나 접수를 취소합니다.\n\n"
+            "먼저 성함을 알려주시겠어요?"
+        )
+        return NAME
+    except Forbidden:
+        # 사용자가 봇을 차단한 경우, Forbidden 오류가 발생합니다.
+        user = update.message.from_user
+        # 서버 로그에만 경고를 남기고, 사용자에게는 아무것도 보내지 않습니다.
+        logger.warning(f"사용자 '{user.first_name}' (ID: {user.id})님이 봇을 차단한 상태입니다.")
+        # 대화를 시작하지 않고 조용히 종료합니다.
+        return ConversationHandler.END
 
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -255,7 +265,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
-    print("개선된 챗봇이 시작되었습니다...")
+    print("최종 챗봇이 시작되었습니다...")
     application.run_polling()
 
 if __name__ == "__main__":
