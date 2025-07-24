@@ -206,3 +206,53 @@ async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_
             f"👨‍💼 **직업:** {ud.get('occupation', 'N/A')}\n"
             f"💰 **월 수입:** {ud.get('income', 'N/A')}만 원\n"
             f"💵 **필요 금액:** {ud.get('loan_amount', 'N/A')}만 원\n"
+            f"🗓️ **상환 기간:** {ud.get('repayment_period', 'N/A')}\n\n"
+            f"───── 기타 확인 사항 ─────\n"
+            f"• 개인대부 사용: {ud.get('private_loan', 'N/A')}\n"
+            f"• 연체/사고 이력: {ud.get('delinquency_history', 'N/A')}\n"
+        ) # ✅ 여기에 닫는 괄호 ')' 가 빠져있었습니다.
+
+        if ADMIN_CHAT_ID:
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message, parse_mode='Markdown')
+        else:
+            logger.error("ADMIN_CHAT_ID가 설정되지 않았습니다.")
+            
+        return ConversationHandler.END
+    else:
+        await update.message.reply_text("버튼을 선택하거나 '이전'을 입력해주세요.")
+        return DELINQUENCY_HISTORY
+
+
+def main() -> None:
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("TELEGRAM_BOT_TOKEN이 설정되지 않았습니다.")
+        return
+
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
+            REGION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_region)],
+            OCCUPATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_occupation)],
+            INCOME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_income)],
+            LOAN_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_loan_amount)],
+            DOB: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_dob)],
+            REPAYMENT_PERIOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_repayment_period)],
+            PRIVATE_LOAN: [MessageHandler(filters.Regex('^(예|아니오)$'), get_private_loan)],
+            DELINQUENCY_HISTORY: [MessageHandler(filters.Regex('^(예|아니오)$'), get_delinquency_history)],
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel),
+            MessageHandler(filters.Regex('^취소$'), cancel)
+        ],
+        allow_reentry=True
+    )
+    application.add_handler(conv_handler)
+    print("최종 챗봇 v5(문법 오류 수정)가 시작되었습니다...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
