@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info(f"사용자 {update.message.from_user.first_name}가 대화를 취소했습니다.")
     await update.message.reply_text(
         "접수가 취소되었습니다. 처음부터 다시 시작하시려면 /start 를 눌러주세요.",
         reply_markup=ReplyKeyboardRemove(),
@@ -215,7 +214,6 @@ async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_
 
         if ADMIN_CHAT_ID:
             await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_message, parse_mode='Markdown')
-            logger.info("관리자에게 상세 접수 내용을 성공적으로 전달했습니다.")
         else:
             logger.error("ADMIN_CHAT_ID가 설정되지 않았습니다.")
             
@@ -249,9 +247,10 @@ def main() -> None:
             CommandHandler("cancel", cancel),
             MessageHandler(filters.Regex('^취소$'), cancel)
         ],
+        **allow_reentry=True** # ✅ 이 한 줄이 문제를 해결합니다.
     )
     application.add_handler(conv_handler)
-    print("최종 챗봇이 시작되었습니다...")
+    print("최종 챗봇 v2가 시작되었습니다...")
     application.run_polling()
 
 if __name__ == "__main__":
