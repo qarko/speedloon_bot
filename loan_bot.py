@@ -145,3 +145,64 @@ async def get_dob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def get_repayment_period(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     if text == '이전':
+        await update.message.reply_text("생년월일 8자리를 다시 알려주세요.")
+        return DOB
+
+    context.user_data['repayment_period'] = text
+    reply_keyboard = [["예", "아니오"]]
+    await update.message.reply_text(
+        "현재 사용 중인 개인대부가 있으신가요?",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, input_field_placeholder="버튼을 선택해주세요"),
+    )
+    return PRIVATE_LOAN
+
+
+async def get_private_loan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text
+    if text == '이전':
+        await update.message.reply_text("예상 상환 기간을 다시 알려주세요.", reply_markup=ReplyKeyboardRemove())
+        return REPAYMENT_PERIOD
+
+    if text in ["예", "아니오"]:
+        context.user_data['private_loan'] = text
+        reply_keyboard = [["예", "아니오"]]
+        await update.message.reply_text(
+            "최근 5년 내 연체 또는 사고자 이력이 있으신가요?",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, input_field_placeholder="버튼을 선택해주세요"),
+        )
+        return DELINQUENCY_HISTORY
+    else:
+        await update.message.reply_text("버튼을 선택하거나 '이전'을 입력해주세요.")
+        return PRIVATE_LOAN
+
+
+async def get_delinquency_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text
+    if text == '이전':
+        reply_keyboard = [["예", "아니오"]]
+        await update.message.reply_text(
+            "현재 사용 중인 개인대부가 있으신가요?",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, input_field_placeholder="버튼을 선택해주세요"),
+        )
+        return PRIVATE_LOAN
+
+    if text in ["예", "아니오"]:
+        context.user_data['delinquency_history'] = text
+        await update.message.reply_text(
+            "감사합니다! 모든 정보가 성공적으로 접수되었습니다.\n"
+            "담당자가 확인 후 신속하게 연락드리겠습니다.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+
+        ud = context.user_data
+        admin_message = (
+            f"🔔 **신규 대출 접수 알림** 🔔\n\n"
+            f"─────── 기본 정보 ───────\n"
+            f"👤 **이름:** {ud.get('name', 'N/A')}\n"
+            f"📞 **번호:** {ud.get('phone', 'N/A')}\n"
+            f"🎂 **생년월일:** {ud.get('dob', 'N/A')}\n"
+            f"📍 **지역:** {ud.get('region', 'N/A')}\n\n"
+            f"─── 소득 및 대출 정보 ───\n"
+            f"👨‍💼 **직업:** {ud.get('occupation', 'N/A')}\n"
+            f"💰 **월 수입:** {ud.get('income', 'N/A')}만 원\n"
+            f"💵 **필요 금액:** {ud.get('loan_amount', 'N/A')}만 원\n"
